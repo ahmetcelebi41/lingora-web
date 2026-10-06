@@ -1,6 +1,6 @@
 # LINGORA Web
 
-LINGORA web uygulamasının başlangıç projesi. Next.js App Router, React,
+LINGORA web uygulaması. Next.js App Router, React,
 TypeScript strict mode ve ESLint kullanır. Sayfa ve root layout varsayılan
 Server Components olarak çalışır; stiller native CSS ile tanımlıdır.
 
@@ -29,7 +29,7 @@ git diff --check
 
 ## Dosya yapısı
 
-- `src/app/page.tsx`: sade LINGORA başlangıç sayfası.
+- `src/app/page.tsx`: LINGORA ana çeviri ekranı.
 - `src/app/layout.tsx`: Türkçe root layout ve metadata.
 - `src/app/globals.css`: temel CSS reset, font ve renkler.
 - `src/app/page.module.css`: başlangıç sayfasının spacing ve metin stilleri.
@@ -39,9 +39,8 @@ git diff --check
 - `package-lock.json`: npm bağımlılık kilidi.
 
 Git deposu bu uygulama klasöründedir. Üst klasördeki `../docs/` proje planlarını
-içerir ve uygulama deposunun kapsamı dışındadır. Mevcut baseline yalnızca
-başlangıç sayfasını içerir; önceki 07.x planları uygulanmış özelliklerin kanıtı
-olarak kullanılmaz.
+içerir ve uygulama deposunun kapsamı dışındadır. Uygulanan özellikler kaynak
+kod ve gerçek QA sonuçları üzerinden doğrulanır.
 
 ## Design system foundation
 
@@ -90,7 +89,7 @@ Button/IconButton minimum 44×44px; primary CTA minimum 48px yüksekliğindedir.
 Form control'ları dar alanda yüzde 100 genişliğe uyarlanır. Bileşenler state,
 hook veya browser API kullanmaz; Server Component uyumludur. Event handler
 gereken kullanımda client boundary'yi çağıran etkileşimli katman belirler.
-Baseline ana sayfa yalnız mevcut LINGORA başlığı ve açıklamasını içerir.
+Primitive'ler translator UI tarafından yeniden kullanılır.
 
 ## App shell
 
@@ -109,3 +108,27 @@ slotudur. Verilmediğinde slot markup'ı veya placeholder gösterilmez. Slot
 1024px altında tek kolon, 1024px ve üzerinde iki eşit `minmax(0, 1fr)` kolon
 sağlar; kolon aralığı 24px tokenıdır. Slot ve çocukları `min-inline-size: 0`
 ile dar alana uyarlanır. Bileşenlerde state, hook veya client boundary yoktur.
+
+## Translator UI
+
+`src/components/translator/Translator.tsx` AppShell'in workspace slotunda
+kaynak ve sonuç panellerini sunar. Mevcut workspace grid'i 1024px altında tek,
+desktop'ta iki eşit kolon sağlar. Swap kontrolü mobilde panellerin arasında,
+desktop'ta kolon aralığında yer alır. Paneller aynı surface/border/radius ve
+spacing tokenlarını, textarea'lar aynı minimum yüksekliği kullanır. Panel
+yüksekliği sabit değildir; aksiyonlar dar alanda wrap olur.
+
+Native dil seçicilerinin uncontrolled başlangıç değerleri İngilizce (`en`)
+ve Türkçe (`tr`) olarak ayarlıdır; yalnız bu iki seçenek bulunur. Alan
+etiketleri başlangıç yönünü gösterir. Kaynak textarea düzenlenebilir; sonuç
+textarea boş ve readOnly olarak sunulur. Mikrocopy: `Çevirmek istediğiniz
+metni yazın` ve `Çeviri burada görünecek`.
+
+Çevir, Dilleri değiştir, Temizle, Kopyala, Dinle ve Durdur kontrolleri native
+disabled durumundadır. UI'da state, event handler, translation/provider,
+Clipboard veya speech davranışı bulunmaz. Translator Server Component olarak
+kalır; yeni dependency eklenmez.
+
+İsteğe bağlı `statusMessage` sunum prop'u mevcut StatusMessage primitive'ini
+kullanır. Verilmediğinde feedback markup'ı gösterilmez; ilk açılışta loading,
+error veya sahte sonuç yoktur. Live-region davranışını caller belirler.
