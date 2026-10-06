@@ -1,0 +1,36 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100vh;
+  min-block-size: 100svh;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-8);
+  min-inline-size: 0;
+  padding-block: var(--space-8) var(--space-12);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  min-inline-size: 0;
+}
+
+.workspace > * {
+  min-inline-size: 0;
+}
+
+@media (min-width: 1024px) {
+  .main {
+    padding-block: var(--space-12) var(--space-16);
+  }
+
+  .workspace {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

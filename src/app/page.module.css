@@ -1,8 +1,8 @@
-.page {
+.intro {
   display: grid;
   align-content: start;
   gap: var(--space-3);
-  padding-block: var(--space-12);
+  min-inline-size: 0;
 }
 
 .description {

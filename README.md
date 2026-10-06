@@ -91,3 +91,21 @@ Form control'ları dar alanda yüzde 100 genişliğe uyarlanır. Bileşenler sta
 hook veya browser API kullanmaz; Server Component uyumludur. Event handler
 gereken kullanımda client boundary'yi çağıran etkileşimli katman belirler.
 Baseline ana sayfa yalnız mevcut LINGORA başlığı ve açıklamasını içerir.
+
+## App shell
+
+`src/components/layout/AppShell.tsx` page seviyesinde kullanılır; root layout
+metadata, html/body ve global CSS sorumluluklarını korur. AppShell bir native
+header ve bir native main üretir. Header'daki LINGORA wordmark'ı heading
+değildir; ana sayfanın tek `h1` öğesi main içinde kalır.
+
+Header ve main aynı global `.container` helper'ını kullanır. Kabuk minimum
+viewport yüksekliğinde, içerik büyüdükçe uzayan bir flex yapıdır; header veya
+main üzerinde içerik kesen sabit yükseklik bulunmaz. Spacing ve renkler mevcut
+semantic tokenlardan gelir.
+
+AppShell'in isteğe bağlı `workspace` prop'u gelecekteki ana içerik için grid
+slotudur. Verilmediğinde slot markup'ı veya placeholder gösterilmez. Slot
+1024px altında tek kolon, 1024px ve üzerinde iki eşit `minmax(0, 1fr)` kolon
+sağlar; kolon aralığı 24px tokenıdır. Slot ve çocukları `min-inline-size: 0`
+ile dar alana uyarlanır. Bileşenlerde state, hook veya client boundary yoktur.
