@@ -1,0 +1,11 @@
+.page {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding-block: var(--space-12);
+}
+
+.description {
+  max-inline-size: 65ch;
+  color: var(--color-foreground-secondary);
+}
