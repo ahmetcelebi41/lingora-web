@@ -63,3 +63,31 @@ cihazda kuruluysa kullanılır; kurulu değilse sistem fontu kullanılır.
 44px hedefini tanımlar. Global `:focus-visible` 2px outline ve 2px offset
 kullanır; reduced-motion tercihi animation/transition sürelerini azaltır
 ve smooth scroll'u kapatır. Sayfa ve layout Server Components olarak kalır.
+
+## UI primitives
+
+Bileşenler ve prop tipleri `@/components/ui` üzerinden import edilir:
+
+- `Button`: primary/secondary/ghost; varsayılan `type="button"`.
+  `loading` native disabled ve `aria-busy` uygular; `loadingText` değiştirilebilir.
+- `Textarea`: zorunlu `id` ve `label`; helper/error metni, native disabled,
+  readOnly ve yalnız dikey resize desteği.
+- `Select`: zorunlu `id` ve `label`; native option children, helper/error
+  metni ve disabled desteği.
+- `IconButton`: zorunlu `aria-label`; dekoratif icon/children, varsayılan
+  ghost variant ve güvenli button type. Button primitive'ini kullanır.
+- `StatusMessage`: info/success/warning/error; renk dışında görünür durum
+  etiketi. Varsayılan live region/alert yoktur; caller `role` ve `aria-live`
+  gibi native props ile duyuru davranışını belirler.
+
+Textarea/Select `id` değerleri sayfada benzersiz olmalı; `${id}-helper` ve
+`${id}-error` değerleri açıklama düğümleri için ayrılmıştır. Caller'ın mevcut
+`aria-describedby` referansları korunur; error text olduğunda `aria-invalid`
+ve hata açıklaması otomatik ilişkilendirilir. Whitespace açıklamalar atlanır.
+
+CSS Modules mevcut semantic tokenları ve global focus-visible stilini kullanır.
+Button/IconButton minimum 44×44px; primary CTA minimum 48px yüksekliğindedir.
+Form control'ları dar alanda yüzde 100 genişliğe uyarlanır. Bileşenler state,
+hook veya browser API kullanmaz; Server Component uyumludur. Event handler
+gereken kullanımda client boundary'yi çağıran etkileşimli katman belirler.
+Baseline ana sayfa yalnız mevcut LINGORA başlığı ve açıklamasını içerir.

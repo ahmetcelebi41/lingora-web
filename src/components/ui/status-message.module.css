@@ -1,0 +1,30 @@
+.status {
+  display: grid;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  padding: var(--space-4);
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  color: var(--color-foreground);
+  overflow-wrap: anywhere;
+}
+
+.info {
+  background: var(--color-info-soft);
+  border-color: var(--color-info);
+}
+
+.success {
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+}
+
+.warning {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+}
+
+.error {
+  background: var(--color-error-soft);
+  border-color: var(--color-error);
+}
