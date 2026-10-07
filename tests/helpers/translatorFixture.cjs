@@ -5,7 +5,7 @@ const ts = require("typescript");
 const jsx = require("react/jsx-runtime");
 const { renderToStaticMarkup } = require("react-dom/server");
 
-// Real component/state/flow code, controlled hooks, service, clipboard and clock.
+// Real component/state/flow code, controlled hooks, browser APIs and clock.
 // This fixture does not simulate browser hydration or model inference.
 const root = path.join(__dirname, "../../src");
 function fixture(overrides = {}, options = {}) {
@@ -43,7 +43,7 @@ function fixture(overrides = {}, options = {}) {
     }).outputText;
     const exports = {};
     modules.set(file, exports);
-    new Function("exports", "require", "navigator", "setTimeout", "clearTimeout", code)(exports, specifier => {
+    new Function("exports", "require", "navigator", "setTimeout", "clearTimeout", "window", code)(exports, specifier => {
       if (specifier.endsWith(".css")) return { __esModule: true, default: {} };
       if (specifier === "react/jsx-runtime") return jsx;
       if (specifier === "react") return {
@@ -66,6 +66,10 @@ function fixture(overrides = {}, options = {}) {
             cleanups.push(effect());
           }
         },
+        useSyncExternalStore(subscribe, snapshot, serverSnapshot) {
+          cursor++;
+          return options.server ? serverSnapshot() : snapshot();
+        },
       };
       if (specifier === "@/features/translation/service") return { translationService: service };
       const base = specifier.startsWith("@/")
@@ -79,7 +83,7 @@ function fixture(overrides = {}, options = {}) {
       const id = ++timerId;
       timers.set(id, { callback, at: now + delay });
       return id;
-    }, id => timers.delete(id));
+    }, id => timers.delete(id), options.window);
     return exports;
   }
   const { Translator } = load(path.join(root, "components/translator/Translator.tsx"));
@@ -106,6 +110,11 @@ function fixture(overrides = {}, options = {}) {
     button: () => Button(button("Çevir").props),
     copyButton: () => Button(copyButton().props),
     actionButton: label => Button(button(label).props),
+    clickAction: label => button(label).props.onClick(),
+    controlsInPanel(id, label) {
+      const panel = find(node => node.type === "section" && node.props["aria-labelledby"] === id);
+      return elements(panel).filter(node => node.type === Button && node.props.children === label).length;
+    },
     html: () => renderToStaticMarkup(render()),
     click: () => button("Çevir").props.onClick(),
     clickCopy: () => copyButton().props.onClick(),

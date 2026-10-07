@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Button,
   IconButton,
@@ -23,6 +23,33 @@ import {
 import { translationService } from "@/features/translation/service";
 import styles from "./translator.module.css";
 
+const subscribeToSpeechSupport = () => () => {};
+const speechSupported = () =>
+  typeof window !== "undefined" &&
+  typeof window.speechSynthesis?.speak === "function" &&
+  typeof window.speechSynthesis?.cancel === "function" &&
+  typeof window.SpeechSynthesisUtterance === "function";
+
+type ActiveSpeech = {
+  utterance: SpeechSynthesisUtterance | null;
+  synthesis: SpeechSynthesis | null;
+};
+
+function cancelActiveSpeech(tracker: ActiveSpeech) {
+  const { utterance, synthesis } = tracker;
+  tracker.utterance = null;
+  tracker.synthesis = null;
+  if (!utterance) return;
+  // Detach before cancel: canceled/interrupted events must not restore feedback.
+  utterance.onend = null;
+  utterance.onerror = null;
+  try {
+    synthesis?.cancel();
+  } catch {
+    // Cleanup must remain safe even if the browser speech engine is unavailable.
+  }
+}
+
 export function Translator() {
   const [state, setState] = useState(initialTranslationState);
   const request = useRef<TranslationRequestTracker>({ id: 0, pending: false });
@@ -31,14 +58,25 @@ export function Translator() {
     id: 0,
     timer: null,
   });
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechError, setSpeechError] = useState(false);
+  const speech = useRef<ActiveSpeech>({ utterance: null, synthesis: null });
+  // Server and initial hydration render disabled; browser support enables TTS.
+  const supportsSpeech = useSyncExternalStore(
+    subscribeToSpeechSupport,
+    speechSupported,
+    () => false,
+  );
 
   useEffect(() => {
     const tracker = request.current;
     const copyTracker = copy.current;
+    const speechTracker = speech.current;
     return () => {
       invalidateTranslationRequest(tracker);
       copyTracker.id += 1;
       if (copyTracker.timer !== null) clearTimeout(copyTracker.timer);
+      cancelActiveSpeech(speechTracker);
     };
   }, []);
 
@@ -54,6 +92,10 @@ export function Translator() {
   const hasSourceText = sourceText.trim().length > 0;
   const hasResult = resultText.trim().length > 0;
   const isLoading = status === "loading";
+  const englishPanel = sourceLanguage === "en" ? "source"
+    : targetLanguage === "en" ? "result" : null;
+  const englishText = englishPanel === "source" ? sourceText
+    : englishPanel === "result" ? resultText : "";
   const loadingMessage = phase === "preparing"
     ? "Model hazırlanıyor… İlk kullanım biraz sürebilir."
     : "Çevriliyor…";
@@ -63,9 +105,64 @@ export function Translator() {
     !isLoading;
 
   function handleTranslate() {
+    stopSpeech();
     resetCopyFeedback();
     void runTranslation(state, request.current, translationService, setState);
   }
+
+  function stopSpeech() {
+    cancelActiveSpeech(speech.current);
+    setIsSpeaking(false);
+    setSpeechError(false);
+  }
+
+  function handleListen() {
+    if (!supportsSpeech || !englishText.trim() || isLoading || speech.current.utterance) return;
+    stopSpeech();
+    const tracker = speech.current;
+    try {
+      const synthesis = window.speechSynthesis;
+      synthesis.cancel();
+      const utterance = new window.SpeechSynthesisUtterance(englishText);
+      utterance.lang = "en-US";
+      tracker.utterance = utterance;
+      tracker.synthesis = synthesis;
+      utterance.onend = () => {
+        if (tracker.utterance !== utterance) return;
+        tracker.utterance = null;
+        tracker.synthesis = null;
+        setIsSpeaking(false);
+      };
+      utterance.onerror = (event) => {
+        if (tracker.utterance !== utterance) return;
+        tracker.utterance = null;
+        tracker.synthesis = null;
+        setIsSpeaking(false);
+        setSpeechError(event.error !== "canceled" && event.error !== "interrupted");
+      };
+      setIsSpeaking(true);
+      synthesis.speak(utterance);
+    } catch {
+      cancelActiveSpeech(tracker);
+      setIsSpeaking(false);
+      setSpeechError(true);
+    }
+  }
+
+  const speechControls = (
+    <>
+      <Button
+        variant="ghost"
+        disabled={!supportsSpeech || !englishText.trim() || isLoading || isSpeaking}
+        onClick={handleListen}
+      >
+        Dinle
+      </Button>
+      <Button variant="ghost" disabled={!isSpeaking} onClick={stopSpeech}>
+        Durdur
+      </Button>
+    </>
+  );
 
   function resetCopyFeedback() {
     const tracker = copy.current;
@@ -110,6 +207,7 @@ export function Translator() {
           disabled={isLoading}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            stopSpeech();
             resetCopyFeedback();
             invalidateTranslationRequest(request.current);
             setState((previous) =>
@@ -128,6 +226,7 @@ export function Translator() {
           value={sourceText}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            stopSpeech();
             resetCopyFeedback();
             invalidateTranslationRequest(request.current);
             setState((previous) => changeSourceText(previous, value));
@@ -140,6 +239,7 @@ export function Translator() {
             variant="ghost"
             disabled={isLoading || sourceText.length === 0}
             onClick={() => {
+              stopSpeech();
               resetCopyFeedback();
               invalidateTranslationRequest(request.current);
               setState(clearTranslation);
@@ -147,6 +247,7 @@ export function Translator() {
           >
             Temizle
           </Button>
+          {englishPanel === "source" && speechControls}
         </div>
       </section>
 
@@ -156,6 +257,7 @@ export function Translator() {
           variant="secondary"
           disabled={isLoading}
           onClick={() => {
+            stopSpeech();
             resetCopyFeedback();
             invalidateTranslationRequest(request.current);
             setState(swapLanguages);
@@ -188,6 +290,7 @@ export function Translator() {
           disabled={isLoading}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            stopSpeech();
             resetCopyFeedback();
             invalidateTranslationRequest(request.current);
             setState((previous) =>
@@ -216,12 +319,7 @@ export function Translator() {
           >
             {copyFeedback === "copied" ? "Kopyalandı" : "Kopyala"}
           </Button>
-          <Button variant="ghost" disabled>
-            Dinle
-          </Button>
-          <Button variant="ghost" disabled>
-            Durdur
-          </Button>
+          {englishPanel === "result" && speechControls}
         </div>
       </section>
 
@@ -256,6 +354,13 @@ export function Translator() {
         <div className={styles.feedback}>
           <StatusMessage variant="error" role="alert">
             Çeviri kopyalanamadı. Tekrar deneyin.
+          </StatusMessage>
+        </div>
+      )}
+      {speechError && (
+        <div className={styles.feedback}>
+          <StatusMessage variant="error" role="alert">
+            Sesli okuma başlatılamadı. Tekrar deneyin.
           </StatusMessage>
         </div>
       )}

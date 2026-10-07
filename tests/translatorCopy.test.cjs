@@ -19,7 +19,7 @@ test("copy is disabled without a nonblank result and ignores guarded clicks", ()
   }
 });
 
-test("copy enables a native button with a result while TTS controls remain disabled", () => {
+test("copy enables a native button with a result even when TTS is unsupported", () => {
   const f = fixture(translated);
   assert.equal(f.copyButton().type, "button");
   assert.equal(f.copyButton().props.type, "button");
