@@ -7,12 +7,29 @@ const trEn = { sourceText: "Türkçe kaynak", resultText: "  Good morning!\nWelc
 const failure = "Sesli okuma başlatılamadı. Tekrar deneyin.";
 function speechFixture(state = enTr, options = {}) {
   const utterances = [];
+  const listeners = new Set();
+  let voices = options.voices ?? [];
+  let discoveries = 0;
   let cancels = 0;
   const window = {
+    localStorage: options.storage,
     SpeechSynthesisUtterance: class {
       constructor(text) { this.text = text; }
     },
     speechSynthesis: {
+      getVoices() {
+        discoveries++;
+        if (options.discoveryError) throw new Error("private voice discovery failure");
+        return voices;
+      },
+      addEventListener(type, listener) {
+        assert.equal(type, "voiceschanged");
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        assert.equal(type, "voiceschanged");
+        listeners.delete(listener);
+      },
       cancel() {
         cancels++;
         if (options.cancelError) throw new Error("private cancel failure");
@@ -24,8 +41,18 @@ function speechFixture(state = enTr, options = {}) {
       },
     },
   };
+  if (options.noVoiceEvents) {
+    delete window.speechSynthesis.addEventListener;
+    delete window.speechSynthesis.removeEventListener;
+  }
   const f = fixture(state, { window, server: options.server });
   f.utterances = utterances;
+  f.voiceListeners = listeners;
+  f.setVoices = (next, notify = true) => {
+    voices = next;
+    if (notify) [...listeners].forEach(listener => listener());
+  };
+  Object.defineProperty(f, "discoveries", { get: () => discoveries });
   Object.defineProperty(f, "cancels", { get: () => cancels });
   return f;
 }
@@ -41,6 +68,9 @@ test("EN to TR reads verbatim English source with exactly one control set in sou
   assert.equal(f.utterances[0].text, enTr.sourceText);
   assert.equal(f.utterances[0].lang, "en-US");
   assert.equal(f.utterances[0].voice, undefined);
+  assert.equal(f.utterances[0].rate, 0.9);
+  assert.equal(f.utterances[0].pitch, 1);
+  assert.equal(f.utterances[0].volume, 1);
   assert.equal(f.actionButton("Dinle").type, "button");
 });
 
@@ -52,6 +82,9 @@ test("TR to EN reads verbatim English result with controls only in result panel"
   f.clickAction("Dinle");
   assert.equal(f.utterances[0].text, trEn.resultText);
   assert.equal(f.utterances[0].lang, "en-US");
+  assert.equal(f.utterances[0].rate, 0.9);
+  assert.equal(f.utterances[0].pitch, 1);
+  assert.equal(f.utterances[0].volume, 1);
 });
 
 test("blank English and loading disable listen and guarded clicks never speak", () => {
@@ -232,4 +265,198 @@ test("speech and copy feedback coexist without resetting each other", async () =
   f.advance(1800);
   assert.equal(f.copyButton().props.children, "Kopyala");
   assert.ok(f.html().includes(failure));
+});
+
+test("English voice discovery applies en-US priority then regional English fallback", () => {
+  const british = { voiceURI: "en-GB", name: "en-GB", lang: "en-GB", default: true, localService: true };
+  const american = { voiceURI: "en-US", name: "en-US", lang: "en-US", default: false, localService: false };
+  for (const [voices, expected] of [[[british, american], american], [[british], british]]) {
+    const f = speechFixture(enTr, { voices });
+    f.clickAction("Dinle");
+    assert.equal(f.utterances[0].voice, expected);
+    assert.equal(f.utterances[0].text, enTr.sourceText);
+  }
+});
+
+test("empty, non-English and failing discovery retain browser fallback", () => {
+  for (const options of [{ voices: [] }, { voices: [{ lang: "tr-TR", default: true }] }, { discoveryError: true }]) {
+    const f = speechFixture(enTr, options);
+    f.clickAction("Dinle");
+    assert.equal(Object.hasOwn(f.utterances[0], "voice"), false);
+    assert.equal(f.utterances[0].lang, "en-US");
+    assert.equal(f.actionButton("Durdur").props.disabled, false);
+    assert.ok(!f.html().includes(failure));
+  }
+});
+
+test("voiceschanged refreshes selection without interrupting active speech; cleanup removes listener", () => {
+  const american = { voiceURI: "en-US", name: "en-US", lang: "en-US", default: true };
+  const f = speechFixture(trEn);
+  assert.equal(f.voiceListeners.size, 1);
+  f.clickAction("Dinle");
+  const discoveries = f.discoveries;
+  f.setVoices([american]);
+  assert.equal(f.discoveries, discoveries + 1);
+  assert.equal(f.cancels, 1);
+  assert.equal(f.utterances[0].voice, undefined);
+  assert.equal(f.actionButton("Durdur").props.disabled, false);
+  f.clickAction("Durdur");
+  f.clickAction("Dinle");
+  assert.equal(f.utterances[1].voice, american);
+  assert.equal(f.utterances[1].text, trEn.resultText);
+  const queuedListener = [...f.voiceListeners][0];
+  f.cleanup();
+  assert.equal(f.voiceListeners.size, 0);
+  const afterCleanup = f.discoveries;
+  queuedListener();
+  assert.equal(f.discoveries, afterCleanup);
+});
+
+test("each Listen refreshes voice discovery even without a voiceschanged notification", () => {
+  const f = speechFixture();
+  f.clickAction("Dinle");
+  f.utterances[0].onend();
+  const american = { voiceURI: "en-US", name: "en-US", lang: "en-US" };
+  f.setVoices([american], false);
+  f.clickAction("Dinle");
+  assert.equal(f.utterances[1].voice, american);
+  f.clickAction("Durdur");
+  f.setVoices([], false);
+  f.clickAction("Dinle");
+  assert.equal(Object.hasOwn(f.utterances[2], "voice"), false);
+});
+
+test("browsers without voice events still discover late voices on Listen and clean up safely", () => {
+  const f = speechFixture(trEn, { noVoiceEvents: true });
+  assert.equal(f.voiceListeners.size, 0);
+  f.clickAction("Dinle");
+  assert.equal(Object.hasOwn(f.utterances[0], "voice"), false);
+  f.clickAction("Durdur");
+  const english = { voiceURI: "en-GB", name: "en-GB", lang: "en-GB", localService: true };
+  f.setVoices([english], false);
+  f.clickAction("Dinle");
+  assert.equal(f.utterances[1].voice, english);
+  assert.equal(f.utterances[1].text, trEn.resultText);
+  f.cleanup();
+  assert.equal(f.utterances[1].onerror, null);
+  assert.ok(!f.html().includes(failure));
+});
+
+function voiceStorage(initial) {
+  const values = new Map(initial ? [["lingora.tts.voice", initial]] : []);
+  return {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+}
+const usVoice = { voiceURI: "voice-us", name: "English US", lang: "en-US" };
+const gbVoice = { voiceURI: "voice-gb", name: "English UK", lang: "en-GB" };
+
+test("voice select is native, visibly labeled, Automatic first, English-only and en-US first", () => {
+  const f = speechFixture(enTr, { voices: [gbVoice, { voiceURI: "tr", name: "Turkish", lang: "tr-TR" }, usVoice] });
+  const select = f.voiceSelect();
+  assert.equal(select.props.children.type, "select");
+  assert.equal(select.props.children.props.disabled, false);
+  const html = f.html();
+  assert.ok(html.includes('for="english-voice"'));
+  assert.ok(html.includes("İngilizce ses"));
+  assert.ok(html.indexOf("Otomatik") < html.indexOf("English US"));
+  assert.ok(html.indexOf("English US") < html.indexOf("English UK"));
+  assert.ok(!html.includes("Turkish"));
+  f.clickAction("Dinle");
+  assert.equal(f.utterances[0].voice, usVoice);
+});
+
+test("user voice selection applies by URI on both English panels and preserves speech settings", () => {
+  for (const state of [enTr, trEn]) {
+    const storage = voiceStorage();
+    const f = speechFixture(state, { voices: [usVoice, gbVoice], storage });
+    f.changeVoice(gbVoice.voiceURI);
+    assert.equal(storage.getItem("lingora.tts.voice"), gbVoice.voiceURI);
+    f.clickAction("Dinle");
+    const utterance = f.utterances[0];
+    assert.equal(utterance.voice, gbVoice);
+    assert.equal(utterance.text, state === enTr ? state.sourceText : state.resultText);
+    assert.equal(utterance.lang, "en-US");
+    assert.equal(utterance.rate, 0.9);
+    assert.equal(utterance.pitch, 1);
+    assert.equal(utterance.volume, 1);
+    f.changeVoice("");
+    assert.equal(f.actionButton("Durdur").props.disabled, true);
+    assert.equal(storage.getItem("lingora.tts.voice"), null);
+    f.clickAction("Dinle");
+    assert.equal(f.utterances[1].voice, usVoice);
+    assert.ok(!f.html().includes(failure));
+  }
+});
+
+test("stored URI restores across opens and late voiceschanged; refreshed objects resolve by URI", () => {
+  const storage = voiceStorage(gbVoice.voiceURI);
+  const f = speechFixture(enTr, { storage });
+  assert.equal(f.voiceSelect().props.children.props.value, "");
+  f.clickAction("Dinle");
+  assert.equal(Object.hasOwn(f.utterances[0], "voice"), false);
+  f.clickAction("Durdur");
+  const replacement = { ...gbVoice, name: "Renamed English" };
+  f.setVoices([usVoice, replacement]);
+  assert.equal(f.voiceSelect().props.children.props.value, gbVoice.voiceURI);
+  f.clickAction("Dinle");
+  assert.equal(f.utterances[1].voice, replacement);
+  const reopened = speechFixture(trEn, { voices: [replacement], storage });
+  assert.equal(reopened.voiceSelect().props.children.props.value, gbVoice.voiceURI);
+  reopened.clickAction("Dinle");
+  assert.equal(reopened.utterances[0].voice, replacement);
+});
+
+test("missing stored or removed selected voice returns to Automatic and clears persistence", () => {
+  const storage = voiceStorage("missing-uri");
+  const f = speechFixture(enTr, { voices: [usVoice, gbVoice], storage });
+  assert.equal(f.voiceSelect().props.children.props.value, "");
+  assert.equal(storage.getItem("lingora.tts.voice"), null);
+  f.changeVoice(gbVoice.voiceURI);
+  f.setVoices([usVoice]);
+  assert.equal(f.voiceSelect().props.children.props.value, "");
+  assert.equal(storage.getItem("lingora.tts.voice"), null);
+  f.clickAction("Dinle");
+  assert.equal(f.utterances[0].voice, usVoice);
+  f.clickAction("Durdur");
+  f.changeVoice(usVoice.voiceURI);
+  f.setVoices([]);
+  assert.equal(f.voiceSelect().props.children.props.value, "");
+  f.clickAction("Dinle");
+  assert.equal(Object.hasOwn(f.utterances[1], "voice"), false);
+});
+
+test("unavailable or denied storage never blocks selected voice, Automatic or cleanup", () => {
+  const denied = {
+    getItem() { throw new Error("denied"); },
+    setItem() { throw new Error("denied"); },
+    removeItem() { throw new Error("denied"); },
+  };
+  for (const storage of [undefined, denied]) {
+    const f = speechFixture(enTr, { voices: [usVoice, gbVoice], storage });
+    f.changeVoice(gbVoice.voiceURI);
+    f.clickAction("Dinle");
+    assert.equal(f.utterances[0].voice, gbVoice);
+    f.changeVoice("");
+    f.clickAction("Dinle");
+    assert.equal(f.utterances[1].voice, usVoice);
+    f.cleanup();
+  }
+});
+
+test("empty and unsupported browsers keep Automatic; SSR never reads storage", () => {
+  const f = speechFixture();
+  assert.equal(f.voiceSelect().props.children.props.disabled, true);
+  assert.ok(f.html().includes("Otomatik"));
+  f.clickAction("Dinle");
+  assert.equal(Object.hasOwn(f.utterances[0], "voice"), false);
+  const unsupported = fixture(enTr, { window: {} });
+  assert.equal(unsupported.voiceSelect().props.children.props.disabled, true);
+  assert.equal(unsupported.actionButton("Dinle").props.disabled, true);
+  assert.equal(unsupported.actionButton("Durdur").props.disabled, true);
+  const server = speechFixture(enTr, { server: true, storage: { getItem() { assert.fail("SSR storage access"); } } });
+  assert.equal(server.voiceSelect().props.children.props.disabled, true);
+  assert.equal(server.discoveries, 0);
 });

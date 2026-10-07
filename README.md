@@ -129,9 +129,13 @@ yeniden kullanılabilir. Sonuç varsa ve yükleme yoksa Kopyala aktiftir; sonucu
 değiştirmeden Clipboard API ile panoya yazar ve 1,8 saniye Kopyalandı gösterir.
 Clipboard hatası ayrı bir kullanıcı dostu mesajla gösterilir.
 
-Dinle/Durdur İngilizce panelde bulunur: EN→TR için kaynak metin, TR→EN için
-sonuç okunur. Native Web Speech API metni değiştirmeden, `en-US` ile ve browser'ın
-seçtiği sesle okur. Boş metin, çeviri yüklemesi veya API desteği yoksa Dinle
+Dinle/Durdur browser-native Web Speech API ile EN→TR için İngilizce kaynak,
+TR→EN için İngilizce sonuç metnini okur (lang en-US, rate 0.9, pitch 1, volume 1).
+“İngilizce ses” ile sistem sesi seçilebilir; seçim browser localStorage’da
+(`lingora.tts.voice`) saklanır. Seslerin kullanılabilirliği OS/browser’a bağlıdır.
+Otomatik mod önce en-US, sonra diğer İngilizce sesleri tercih eder; uygun ses
+veya kayıtlı seçim bulunamazsa otomatik/browser fallback kullanılır.
+Boş metin, çeviri yüklemesi veya API desteği yoksa Dinle
 devre dışıdır; Durdur yalnız okuma sırasında aktiftir. Metin/dil değişimi,
 temizleme, swap, yeni çeviri ve unmount aktif okumayı iptal eder. Sesli okuma
 hataları translation/copy durumundan ayrı bir kullanıcı dostu mesajla gösterilir.

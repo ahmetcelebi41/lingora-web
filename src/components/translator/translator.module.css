@@ -64,3 +64,8 @@
     inline-size: auto;
   }
 }
+
+.voiceSelection {
+  flex-basis: 100%;
+  min-inline-size: 0;
+}

@@ -55,13 +55,17 @@ function fixture(overrides = {}, options = {}) {
             hooks[index].value = typeof update === "function" ? update(hooks[index].value) : update;
           }];
         },
+        useCallback(callback) {
+          cursor++;
+          return callback;
+        },
         useRef(initial) {
           const index = cursor++;
           return hooks[index] ??= { current: initial };
         },
         useEffect(effect) {
           const index = cursor++;
-          if (!hooks[index]) {
+          if (!options.server && !hooks[index]) {
             hooks[index] = {};
             cleanups.push(effect());
           }
@@ -110,6 +114,8 @@ function fixture(overrides = {}, options = {}) {
     button: () => Button(button("Çevir").props),
     copyButton: () => Button(copyButton().props),
     actionButton: label => Button(button(label).props),
+    voiceSelect: () => Select(find(node => node.type === Select && node.props.id === "english-voice").props),
+    changeVoice: value => find(node => node.type === Select && node.props.id === "english-voice").props.onChange({ currentTarget: { value } }),
     clickAction: label => button(label).props.onClick(),
     controlsInPanel(id, label) {
       const panel = find(node => node.type === "section" && node.props["aria-labelledby"] === id);

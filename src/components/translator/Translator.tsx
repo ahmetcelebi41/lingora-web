@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Button,
   IconButton,
@@ -21,6 +21,7 @@ import {
   type TranslationRequestTracker,
 } from "@/features/translation/flow";
 import { translationService } from "@/features/translation/service";
+import { discoverEnglishVoices, selectEnglishVoice } from "./speechVoice";
 import styles from "./translator.module.css";
 
 const subscribeToSpeechSupport = () => () => {};
@@ -61,12 +62,52 @@ export function Translator() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechError, setSpeechError] = useState(false);
   const speech = useRef<ActiveSpeech>({ utterance: null, synthesis: null });
+  const [englishVoices, setEnglishVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState("");
+  const voicePreference = useRef("");
+  const storedVoicePending = useRef(false);
+
+  const refreshVoices = useCallback(() => {
+    const voices = discoverEnglishVoices(window.speechSynthesis);
+    setEnglishVoices(voices);
+    const preferred = voicePreference.current;
+    // An initially empty list can be temporary; retain the stored URI until voices arrive.
+    if (preferred && !voices.some((voice) => voice.voiceURI === preferred)) {
+      if (!storedVoicePending.current || voices.length > 0) {
+        voicePreference.current = "";
+        storedVoicePending.current = false;
+        try { window.localStorage.removeItem("lingora.tts.voice"); } catch { /* Optional storage. */ }
+      }
+    } else if (voices.length > 0) {
+      storedVoicePending.current = false;
+    }
+    setSelectedVoiceURI(voices.some((voice) => voice.voiceURI === voicePreference.current)
+      ? voicePreference.current : "");
+    return voices;
+  }, []);
   // Server and initial hydration render disabled; browser support enables TTS.
   const supportsSpeech = useSyncExternalStore(
     subscribeToSpeechSupport,
     speechSupported,
     () => false,
   );
+
+  useEffect(() => {
+    if (!speechSupported()) return;
+    const synthesis = window.speechSynthesis;
+    try {
+      voicePreference.current = window.localStorage.getItem("lingora.tts.voice") ?? "";
+      storedVoicePending.current = Boolean(voicePreference.current);
+    } catch { /* Storage can be unavailable or denied. */ }
+    let active = true;
+    const refresh = () => { if (active) refreshVoices(); };
+    refresh();
+    synthesis.addEventListener?.("voiceschanged", refresh);
+    return () => {
+      active = false;
+      synthesis.removeEventListener?.("voiceschanged", refresh);
+    };
+  }, [refreshVoices]);
 
   useEffect(() => {
     const tracker = request.current;
@@ -125,6 +166,14 @@ export function Translator() {
       synthesis.cancel();
       const utterance = new window.SpeechSynthesisUtterance(englishText);
       utterance.lang = "en-US";
+      // Re-read at each user action, including browsers without voiceschanged.
+      const voices = refreshVoices();
+      const voice = voices.find((candidate) => candidate.voiceURI === voicePreference.current)
+        ?? selectEnglishVoice(voices);
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
       tracker.utterance = utterance;
       tracker.synthesis = synthesis;
       utterance.onend = () => {
@@ -151,6 +200,32 @@ export function Translator() {
 
   const speechControls = (
     <>
+      <div className={styles.voiceSelection}>
+        <Select
+          id="english-voice"
+          name="englishVoice"
+          label="İngilizce ses"
+          value={selectedVoiceURI}
+          disabled={!supportsSpeech || englishVoices.length === 0}
+          onChange={(event) => {
+            stopSpeech();
+            const uri = event.currentTarget.value;
+            const selected = englishVoices.some((voice) => voice.voiceURI === uri) ? uri : "";
+            voicePreference.current = selected;
+            storedVoicePending.current = false;
+            setSelectedVoiceURI(selected);
+            try {
+              if (selected) window.localStorage.setItem("lingora.tts.voice", selected);
+              else window.localStorage.removeItem("lingora.tts.voice");
+            } catch { /* Selection still works without persistence. */ }
+          }}
+        >
+          <option value="">Otomatik</option>
+          {englishVoices.map((voice) => (
+            <option key={voice.voiceURI} value={voice.voiceURI}>{voice.name}</option>
+          ))}
+        </Select>
+      </div>
       <Button
         variant="ghost"
         disabled={!supportsSpeech || !englishText.trim() || isLoading || isSpeaking}
