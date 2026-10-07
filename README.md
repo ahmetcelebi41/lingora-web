@@ -125,7 +125,10 @@ Kaynak textarea düzenlenebilir, sonuç textarea readOnly'dir. Kaynak trim
 sonrası dolu, diller farklı ve yükleme yoksa Çevir aktiftir. Çeviri sırasında
 Çevir, dil seçicileri, swap ve temizleme devre dışıdır. Kaynak veya dil
 değişiklikleri bekleyen sonucu geçersiz kılar; success/error sonrasında CTA
-yeniden kullanılabilir. Kopyala, Dinle ve Durdur henüz devre dışıdır.
+yeniden kullanılabilir. Sonuç varsa ve yükleme yoksa Kopyala aktiftir; sonucu
+değiştirmeden Clipboard API ile panoya yazar ve 1,8 saniye Kopyalandı gösterir.
+Clipboard hatası ayrı bir kullanıcı dostu mesajla gösterilir. Dinle ve Durdur
+henüz devre dışıdır.
 
 ## Browser-side translation — 07.7
 

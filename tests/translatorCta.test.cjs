@@ -1,86 +1,8 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
-const ts = require("typescript");
-const jsx = require("react/jsx-runtime");
-const { renderToStaticMarkup } = require("react-dom/server");
-
-// Run real Translator, Button, state and flow code with controlled hook/service
-// fixtures. These checks do not simulate browser hydration or model inference.
-const root = path.join(__dirname, "../src");
-function fixture(overrides = {}) {
-  const modules = new Map();
-  let state;
-  let ref;
-  let cleanup;
-  const pending = [];
-  const service = {
-    translate(request, options) {
-      return new Promise((resolve, reject) => pending.push({ request, options, resolve, reject }));
-    },
-  };
-  function load(file) {
-    if (modules.has(file)) return modules.get(file);
-    const code = ts.transpileModule(fs.readFileSync(file, "utf8"), {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2020,
-        jsx: ts.JsxEmit.ReactJSX,
-        esModuleInterop: true,
-      },
-    }).outputText;
-    const exports = {};
-    modules.set(file, exports);
-    new Function("exports", "require", code)(exports, specifier => {
-      if (specifier.endsWith(".css")) return { __esModule: true, default: {} };
-      if (specifier === "react/jsx-runtime") return jsx;
-      if (specifier === "react") return {
-        useState(initial) {
-          state ??= { ...initial, ...overrides };
-          return [state, update => { state = typeof update === "function" ? update(state) : update; }];
-        },
-        useRef(initial) { return ref ??= { current: initial }; },
-        useEffect(effect) { cleanup ??= effect(); },
-      };
-      if (specifier === "@/features/translation/service") return { translationService: service };
-      const base = specifier.startsWith("@/")
-        ? path.join(root, specifier.slice(2))
-        : path.resolve(path.dirname(file), specifier);
-      const resolved = [`${base}.ts`, `${base}.tsx`, path.join(base, "index.ts")]
-        .find(candidate => fs.existsSync(candidate));
-      assert.ok(resolved, `Unexpected module: ${specifier}`);
-      return load(resolved);
-    });
-    return exports;
-  }
-  const { Translator } = load(path.join(root, "components/translator/Translator.tsx"));
-  const { Button, Textarea } = load(path.join(root, "components/ui/index.ts"));
-  function elements(node) {
-    if (Array.isArray(node)) return node.flatMap(elements);
-    if (!node || typeof node !== "object" || !node.props) return [];
-    return [node, ...elements(node.props.children)];
-  }
-  const render = () => Translator();
-  const cta = () => elements(render()).find(node => node.type === Button && node.props.children === "Çevir");
-  render();
-  return {
-    get state() { return state; },
-    get tracker() { return ref.current; },
-    pending,
-    button: () => Button(cta().props),
-    html: () => renderToStaticMarkup(render()),
-    click: () => cta().props.onClick(),
-    changeSource(value) {
-      const source = elements(render()).find(node => node.type === Textarea && node.props.id === "source-text");
-      source.props.onChange({ currentTarget: { value } });
-    },
-    cleanup: () => cleanup(),
-  };
-}
+const { fixture, tick } = require("./helpers/translatorFixture.cjs");
 
 const valid = { sourceText: "Hello, how are you today?" };
-const tick = () => new Promise(setImmediate);
 
 test("CTA is disabled for empty/trimmed-empty source and same-language input", () => {
   for (const sourceText of ["", " \t\n "]) {
