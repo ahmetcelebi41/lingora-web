@@ -282,6 +282,8 @@ export function Translator() {
           disabled={isLoading}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            // A no-op must not invalidate the request while leaving its loading state.
+            if ((value !== "en" && value !== "tr") || value === sourceLanguage) return;
             stopSpeech();
             resetCopyFeedback();
             invalidateTranslationRequest(request.current);
@@ -365,6 +367,8 @@ export function Translator() {
           disabled={isLoading}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            // A no-op must not invalidate the request while leaving its loading state.
+            if ((value !== "en" && value !== "tr") || value === targetLanguage) return;
             stopSpeech();
             resetCopyFeedback();
             invalidateTranslationRequest(request.current);

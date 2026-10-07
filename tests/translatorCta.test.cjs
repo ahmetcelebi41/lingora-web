@@ -101,3 +101,71 @@ test("source edits re-enable CTA, reset feedback and invalidate stale phase/resu
   assert.equal(f.state, edited);
   assert.equal(f.button().props.disabled, false);
 });
+
+
+test("same or invalid language events during loading keep the active request and settle normally", async () => {
+  for (const direction of [valid, { ...valid, sourceLanguage: "tr", targetLanguage: "en" }]) {
+    for (const field of ["source", "target"]) {
+      for (const value of [direction[field + "Language"] ?? (field === "source" ? "en" : "tr"), "fr"]) {
+        const f = fixture(direction);
+        f.click();
+        const id = f.tracker.id;
+        f.pending[0].options.onPhase("preparing");
+        const before = f.state;
+        f.changeLanguage(field + "-language", value);
+        assert.equal(f.tracker.id, id);
+        assert.equal(f.tracker.pending, true);
+        assert.equal(f.state, before);
+        f.pending[0].resolve({ text: "Current result" });
+        await tick();
+        assert.equal(f.state.status, "success");
+        assert.equal(f.state.phase, null);
+        assert.equal(f.tracker.pending, false);
+        assert.equal(f.button().props.disabled, false);
+      }
+    }
+  }
+});
+
+
+test("loading keeps source editable and swap, clear and language controls disabled", () => {
+  for (const phase of ["preparing", "translating"]) {
+    const f = fixture({ ...valid, status: "loading", phase });
+    const html = f.html();
+    for (const id of ["source-language", "target-language"]) {
+      assert.match(html.match(new RegExp('<select[^>]*id="' + id + '"[^>]*>'))[0], /disabled/);
+    }
+    assert.doesNotMatch(html.match(/<textarea[^>]*id="source-text"[^>]*>/)[0], /disabled/);
+    assert.match(html, new RegExp("<button[^>]*disabled[^>]*>Temizle</button>"));
+    assert.match(html.match(/<button[^>]*aria-label="Dilleri değiştir"[^>]*>/)[0], /disabled/);
+    assert.equal(f.button().props.disabled, true);
+  }
+});
+
+test("programmatic edits invalidate stale success, error and phase without leaving loading", async () => {
+  for (const action of [
+    f => f.changeSource("New source"),
+    f => f.changeLanguage("source-language", "tr"),
+    f => f.changeLanguage("target-language", "en"),
+    f => f.swap(),
+    f => f.clear(),
+  ]) {
+    for (const outcome of ["success", "error"]) {
+      const f = fixture(valid);
+      f.click();
+      f.pending[0].options.onPhase("preparing");
+      action(f);
+      const changed = f.state;
+      assert.equal(changed.status, "idle");
+      assert.equal(f.tracker.pending, false);
+      f.pending[0].options.onPhase("translating");
+      if (outcome === "success") f.pending[0].resolve({ text: "Stale result" });
+      else f.pending[0].reject(new Error("Stale private runtime failure"));
+      await tick();
+      assert.equal(f.state, changed);
+      assert.equal(f.state.resultText, "");
+      assert.equal(f.state.error, null);
+      if (f.state.sourceText) assert.equal(f.button().props.disabled, false);
+    }
+  }
+});

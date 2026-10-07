@@ -361,3 +361,89 @@ test("queued phase updaters recheck request ID and pending state when React appl
   assert.equal(f.state.status, "success");
   assert.equal(f.state.phase, null);
 });
+
+
+test("inference rejection and invalid outputs settle error then reuse the ready pipeline for manual retry", async () => {
+  for (const direction of [{}, { sourceLanguage: "tr", targetLanguage: "en" }]) {
+    for (const outcome of ["reject", "empty", "whitespace", "invalid"]) {
+      const a = adapterFixture();
+      const f = fixture(direction, a.service);
+      const failed = f.submit();
+      await new Promise(setImmediate);
+      a.loads[0].ready();
+      await new Promise(setImmediate);
+      assert.equal(f.state.phase, "translating");
+      if (outcome === "reject") a.inferences[0].reject(new Error("Private inference failure"));
+      else a.inferences[0].resolve(outcome === "invalid" ? [{}] : [{ translation_text: outcome === "empty" ? "" : "   " }]);
+      await failed;
+      assert.equal(f.state.status, "error");
+      assert.equal(f.state.phase, null);
+      assert.equal(f.state.resultText, "");
+      assert.equal(f.state.error, "Çeviri tamamlanamadı. Lütfen tekrar deneyin.");
+      assert.equal(f.tracker.pending, false);
+      assert.equal(a.inferences.length, 1); // No automatic retry.
+      const start = f.history.length;
+      const retry = f.submit();
+      await new Promise(setImmediate);
+      assert.equal(a.loads.length, 1); // Ready pipeline retained.
+      assert.ok(f.history.slice(start).every(state => state.phase !== "preparing"));
+      assert.equal(f.state.phase, "translating");
+      a.inferences[1].resolve([{ translation_text: "Recovered result" }]);
+      await retry;
+      assert.equal(f.state.status, "success");
+      assert.equal(f.state.resultText, "Recovered result");
+      assert.equal(f.tracker.pending, false);
+    }
+  }
+});
+
+test("runtime initialization failure is normalized and a later user action can recover in both directions", async () => {
+  for (const direction of [{}, { sourceLanguage: "tr", targetLanguage: "en" }]) {
+    let imports = 0;
+    let loads = 0;
+    const service = load(path.join(root, "providers/browserTranslationService.ts"), () => {
+      imports++;
+      if (imports === 1) throw new Error("Private unsupported runtime initialization");
+      return {
+        async pipeline() {
+          loads++;
+          return async () => [{ translation_text: "Recovered runtime result" }];
+        },
+      };
+    }).browserTranslationService;
+    const f = fixture(direction, service);
+    await f.submit();
+    assert.equal(f.state.status, "error");
+    assert.equal(f.state.phase, null);
+    assert.equal(f.state.error, "Çeviri tamamlanamadı. Lütfen tekrar deneyin.");
+    assert.equal(f.state.resultText, "");
+    assert.equal(f.tracker.pending, false);
+    assert.equal(imports, 1);
+    assert.equal(loads, 0);
+    await f.submit();
+    assert.equal(imports, 2);
+    assert.equal(loads, 1);
+    assert.equal(f.state.status, "success");
+    assert.equal(f.state.resultText, "Recovered runtime result");
+  }
+});
+
+test("stale rejection and phases cannot change a newer request or release its duplicate-submit lock", async () => {
+  const f = fixture();
+  const old = f.submit();
+  f.change(state => changeSourceText(state, "New source"));
+  const current = f.submit();
+  f.pending[1].onPhase("translating");
+  const before = f.state;
+  f.pending[0].onPhase("preparing");
+  f.pending[0].reject(new Error("Stale failure"));
+  await old;
+  assert.equal(f.state, before);
+  assert.equal(f.tracker.pending, true);
+  await f.submit({ ...f.state, status: "idle" });
+  assert.equal(f.calls.length, 2);
+  f.pending[1].resolve({ text: "Current result" });
+  await current;
+  assert.equal(f.state.status, "success");
+  assert.equal(f.state.resultText, "Current result");
+});
