@@ -1,4 +1,4 @@
-import type { Language } from "./types";
+import type { Language, TranslationPhase } from "./types";
 
 export type TranslationStatus = "idle" | "loading" | "success" | "error";
 
@@ -8,6 +8,7 @@ export type TranslationState = {
   sourceLanguage: Language;
   targetLanguage: Language;
   status: TranslationStatus;
+  phase: TranslationPhase | null;
   error: string | null;
 };
 
@@ -17,12 +18,13 @@ export const initialTranslationState: TranslationState = {
   sourceLanguage: "en",
   targetLanguage: "tr",
   status: "idle",
+  phase: null,
   error: null,
 };
 
 // Every input change invalidates the previous result and feedback together.
 function resetFeedback(state: TranslationState): TranslationState {
-  return { ...state, resultText: "", status: "idle", error: null };
+  return { ...state, resultText: "", status: "idle", phase: null, error: null };
 }
 
 export function changeSourceText(

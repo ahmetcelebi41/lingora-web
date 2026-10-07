@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   IconButton,
@@ -15,29 +15,46 @@ import {
   initialTranslationState,
   swapLanguages,
 } from "@/features/translation/state";
+import {
+  invalidateTranslationRequest,
+  runTranslation,
+  type TranslationRequestTracker,
+} from "@/features/translation/flow";
+import { translationService } from "@/features/translation/service";
 import styles from "./translator.module.css";
-
-// Enable only when a real translation service is connected.
-const isTranslationAvailable = false;
 
 export function Translator() {
   const [state, setState] = useState(initialTranslationState);
+  const request = useRef<TranslationRequestTracker>({ id: 0, pending: false });
+
+  useEffect(() => {
+    const tracker = request.current;
+    return () => invalidateTranslationRequest(tracker);
+  }, []);
+
   const {
     sourceText,
     resultText,
     sourceLanguage,
     targetLanguage,
     status,
+    phase,
     error,
   } = state;
   const hasSourceText = sourceText.trim().length > 0;
   const hasResult = resultText.trim().length > 0;
   const isLoading = status === "loading";
+  const loadingMessage = phase === "preparing"
+    ? "Model hazırlanıyor… İlk kullanım biraz sürebilir."
+    : "Çevriliyor…";
   const canTranslate =
-    isTranslationAvailable &&
     hasSourceText &&
     sourceLanguage !== targetLanguage &&
     !isLoading;
+
+  function handleTranslate() {
+    void runTranslation(state, request.current, translationService, setState);
+  }
 
   return (
     <>
@@ -51,8 +68,10 @@ export function Translator() {
           name="sourceLanguage"
           label="Kaynak dil"
           value={sourceLanguage}
+          disabled={isLoading}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            invalidateTranslationRequest(request.current);
             setState((previous) =>
               changeLanguage(previous, "sourceLanguage", value),
             );
@@ -69,6 +88,7 @@ export function Translator() {
           value={sourceText}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            invalidateTranslationRequest(request.current);
             setState((previous) => changeSourceText(previous, value));
           }}
           rows={8}
@@ -77,8 +97,11 @@ export function Translator() {
         <div className={styles.actions}>
           <Button
             variant="ghost"
-            disabled={sourceText.length === 0}
-            onClick={() => setState(clearTranslation)}
+            disabled={isLoading || sourceText.length === 0}
+            onClick={() => {
+              invalidateTranslationRequest(request.current);
+              setState(clearTranslation);
+            }}
           >
             Temizle
           </Button>
@@ -89,7 +112,11 @@ export function Translator() {
         <IconButton
           aria-label="Dilleri değiştir"
           variant="secondary"
-          onClick={() => setState(swapLanguages)}
+          disabled={isLoading}
+          onClick={() => {
+            invalidateTranslationRequest(request.current);
+            setState(swapLanguages);
+          }}
         >
           <svg
             viewBox="0 0 24 24"
@@ -115,8 +142,10 @@ export function Translator() {
           name="targetLanguage"
           label="Hedef dil"
           value={targetLanguage}
+          disabled={isLoading}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            invalidateTranslationRequest(request.current);
             setState((previous) =>
               changeLanguage(previous, "targetLanguage", value),
             );
@@ -153,6 +182,9 @@ export function Translator() {
           variant="primary"
           className={styles.translate}
           disabled={!canTranslate}
+          loading={isLoading}
+          loadingText={loadingMessage}
+          onClick={handleTranslate}
         >
           Çevir
         </Button>
@@ -161,7 +193,7 @@ export function Translator() {
       {isLoading && (
         <div className={styles.feedback}>
           <StatusMessage variant="info" role="status">
-            Çevriliyor…
+            {loadingMessage}
           </StatusMessage>
         </div>
       )}

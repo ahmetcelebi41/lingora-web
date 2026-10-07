@@ -10,6 +10,15 @@ export type TranslationResponse = {
   text: string;
 };
 
+export type TranslationPhase = "preparing" | "translating";
+
+export type TranslationOptions = {
+  onPhase?: (phase: TranslationPhase) => void;
+};
+
 export interface TranslationService {
-  translate(request: TranslationRequest): Promise<TranslationResponse>;
+  translate(
+    request: TranslationRequest,
+    options?: TranslationOptions,
+  ): Promise<TranslationResponse>;
 }

@@ -24,6 +24,7 @@ ve `npx.cmd` giriş noktalarını kullanabilirsiniz.
 npm run lint
 npx tsc --noEmit
 npm run build
+node --test tests/*.test.cjs
 git diff --check
 ```
 
@@ -118,17 +119,26 @@ desktop'ta kolon aralığında yer alır. Paneller aynı surface/border/radius v
 spacing tokenlarını, textarea'lar aynı minimum yüksekliği kullanır. Panel
 yüksekliği sabit değildir; aksiyonlar dar alanda wrap olur.
 
-Native dil seçicilerinin uncontrolled başlangıç değerleri İngilizce (`en`)
-ve Türkçe (`tr`) olarak ayarlıdır; yalnız bu iki seçenek bulunur. Alan
-etiketleri başlangıç yönünü gösterir. Kaynak textarea düzenlenebilir; sonuç
-textarea boş ve readOnly olarak sunulur. Mikrocopy: `Çevirmek istediğiniz
-metni yazın` ve `Çeviri burada görünecek`.
+Translator bir Client Component'tir. Dil seçicileri ve kaynak metin React
+state'iyle yönetilir; başlangıç yönü İngilizce (`en`) → Türkçe (`tr`) olur.
+Kaynak textarea düzenlenebilir, sonuç textarea readOnly'dir. Kaynak trim
+sonrası dolu, diller farklı ve yükleme yoksa Çevir aktiftir. Çeviri sırasında
+Çevir, dil seçicileri, swap ve temizleme devre dışıdır. Kaynak veya dil
+değişiklikleri bekleyen sonucu geçersiz kılar; success/error sonrasında CTA
+yeniden kullanılabilir. Kopyala, Dinle ve Durdur henüz devre dışıdır.
 
-Çevir, Dilleri değiştir, Temizle, Kopyala, Dinle ve Durdur kontrolleri native
-disabled durumundadır. UI'da state, event handler, translation/provider,
-Clipboard veya speech davranışı bulunmaz. Translator Server Component olarak
-kalır; yeni dependency eklenmez.
+## Browser-side translation — 07.7
 
-İsteğe bağlı `statusMessage` sunum prop'u mevcut StatusMessage primitive'ini
-kullanır. Verilmediğinde feedback markup'ı gösterilmez; ilk açılışta loading,
-error veya sahte sonuç yoktur. Live-region davranışını caller belirler.
+Çeviri `@huggingface/transformers@4.3.1` ile browser içinde çalışır. EN→TR
+`Xenova/m2m100_418M` (`src_lang: "en"`, `tgt_lang: "tr"`), TR→EN
+`Xenova/opus-mt-tr-en` kullanır. API key, backend veya translation API yoktur;
+kullanıcı metni harici bir translation API'ye gönderilmez. Model ve runtime
+asset'leri ağ üzerinden alınır. İlk kullanımda model hazırlığı uzun sürebilir;
+cache ve hazır pipeline ile tekrar kullanım hızlıdır. Her yön kendi pipeline'ını
+yeniden kullanır; model build/SSR sırasında initialize edilmez.
+
+Hazırlıkta `Model hazırlanıyor… İlk kullanım biraz sürebilir.`, inference
+sırasında `Çevriliyor…` erişilebilir durum alanında gösterilir. Sahte yüzde,
+progress bar veya kalan süre yoktur. Yükleme başarısızsa ilgili Promise cache
+kaydı temizlenir, kullanıcı dostu hata gösterilir ve kullanıcı yeniden Çevir
+ile deneyebilir; otomatik retry yoktur.
