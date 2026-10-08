@@ -40,7 +40,7 @@
   inline-size: 100%;
 }
 
-@media (min-width: 1024px) {
+@media (width > 1024px) {
   .source {
     grid-column: 1;
     grid-row: 1;

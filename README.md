@@ -106,14 +106,14 @@ semantic tokenlardan gelir.
 
 AppShell'in isteğe bağlı `workspace` prop'u gelecekteki ana içerik için grid
 slotudur. Verilmediğinde slot markup'ı veya placeholder gösterilmez. Slot
-1024px altında tek kolon, 1024px ve üzerinde iki eşit `minmax(0, 1fr)` kolon
+1024px ve altında tek kolon, 1024px üzerinde iki eşit `minmax(0, 1fr)` kolon
 sağlar; kolon aralığı 24px tokenıdır. Slot ve çocukları `min-inline-size: 0`
 ile dar alana uyarlanır. Bileşenlerde state, hook veya client boundary yoktur.
 
 ## Translator UI
 
 `src/components/translator/Translator.tsx` AppShell'in workspace slotunda
-kaynak ve sonuç panellerini sunar. Mevcut workspace grid'i 1024px altında tek,
+kaynak ve sonuç panellerini sunar. Mevcut workspace grid'i 1024px ve altında tek,
 desktop'ta iki eşit kolon sağlar. Swap kontrolü mobilde panellerin arasında,
 desktop'ta kolon aralığında yer alır. Paneller aynı surface/border/radius ve
 spacing tokenlarını, textarea'lar aynı minimum yüksekliği kullanır. Panel
