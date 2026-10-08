@@ -1,6 +1,7 @@
 # LINGORA Web
 
-LINGORA web uygulaması. Next.js App Router, React,
+LINGORA, İngilizce ve Türkçe arasında metin çevirisi ve İngilizce sesli okuma
+sunan tarayıcı uygulamasıdır. Next.js App Router, React,
 TypeScript strict mode ve ESLint kullanır. Sayfa ve root layout varsayılan
 Server Components olarak çalışır; stiller native CSS ile tanımlıdır.
 
@@ -53,13 +54,11 @@ karşılık gelen `rem` birimleriyle tanımlıdır. Tipografi 28/20/16/14px öl�
 400/500/600 ağırlıkları ve birimsiz satır yüksekliklerini kullanır.
 
 Font stratejisi `Inter, system-ui, -apple-system, BlinkMacSystemFont,
-"Segoe UI", sans-serif` fallback zinciridir. `next/font/google` ile Inter'in
-400/500/600 ağırlıkları denenmiş, build sırasında Google Fonts bağlantısı
-başarısız olduğu için harici font indirme bağımlılığı kaldırılmıştır. Inter
-cihazda kuruluysa kullanılır; kurulu değilse sistem fontu kullanılır.
+"Segoe UI", sans-serif` fallback zinciridir. Inter cihazda kuruluysa kullanılır;
+kurulu değilse sistem fontu kullanılır. Harici webfont indirilmez.
 
 `.container` helper'ı responsive yatay padding ve merkezleme sağlar.
-`--interaction-target-min` gelecekteki etkileşimli öğeler için varsayılan
+`--interaction-target-min` etkileşimli öğeler için varsayılan
 44px hedefini tanımlar. Global `:focus-visible` 2px outline ve 2px offset
 kullanır; reduced-motion tercihi animation/transition sürelerini azaltır
 ve smooth scroll'u kapatır. Sayfa ve layout Server Components olarak kalır.
@@ -104,7 +103,7 @@ viewport yüksekliğinde, içerik büyüdükçe uzayan bir flex yapıdır; heade
 main üzerinde içerik kesen sabit yükseklik bulunmaz. Spacing ve renkler mevcut
 semantic tokenlardan gelir.
 
-AppShell'in isteğe bağlı `workspace` prop'u gelecekteki ana içerik için grid
+AppShell'in isteğe bağlı `workspace` prop'u çeviri panelleri için grid
 slotudur. Verilmediğinde slot markup'ı veya placeholder gösterilmez. Slot
 1024px ve altında tek kolon, 1024px üzerinde iki eşit `minmax(0, 1fr)` kolon
 sağlar; kolon aralığı 24px tokenıdır. Slot ve çocukları `min-inline-size: 0`
@@ -166,7 +165,25 @@ kullanıcı yeniden Çevir ile deneyebilir. Otomatik retry yoktur.
 ## Static hosting
 
 `next.config.ts` içindeki `output: "export"`, `npm run build` ile `out/`
-klasörüne statik HTML/CSS/JS üretir. Cloudflare Pages build komutu
-`npm run build`, output directory `out` olmalıdır. Production HTTPS kullanır;
-Next.js server veya translation backend gerekmez. `next start` statik export
-için kullanılmaz; `out/` statik host tarafından servis edilir.
+klasörüne statik HTML/CSS/JS ve yerel favicon üretir. Production HTTPS
+kullanır; Next.js server veya translation backend gerekmez. `out/` statik host
+tarafından servis edilir; `next start` kullanılmaz.
+
+V1.0 hosting hedefi GitHub Pages Free'dir; public repository gerekir.
+Repository Settings → Pages → Source, `GitHub Actions` olarak seçilmelidir.
+`.github/workflows/deploy-pages.yml`, final QA sonrasında `main` üzerinden
+manuel başlatılır; push otomatik deploy yapmaz. Workflow Node.js 24 ile
+`npm ci`, test/lint/typecheck ve `npm run build` çalıştırır; `out/` artifact'ini
+resmi GitHub Pages actions ile yayımlar. Özel secret/API key/npm token gerekmez.
+
+Repository `ahmetcelebi41/lingora-web`, project site adresi
+`https://ahmetcelebi41.github.io/lingora-web/` olacaktır. Workflow, gerçek
+Pages metadata'sındaki `base_path` değerini
+`GITHUB_PAGES_BASE_PATH` ile build'e aktarır; repo adı hard-code edilmez.
+`basePath` JS/CSS, lazy runtime ve favicon yollarını kapsar; ayrıca `assetPrefix`
+kullanılmaz. `npm run dev` bu değişken set edilse bile kökte çalışır. Yerel
+`npm run build`, değişken verilmezse root export üretir; subpath preview için
+değişkene gerçek Pages base path verilerek yeniden build alınmalıdır.
+
+26.861.777 byte ONNX WASM dosyası export artifact'inde korunur; runtime/model
+kaynakları değiştirilmez. Gerçek deploy kontrolü henüz yapılmamıştır.
