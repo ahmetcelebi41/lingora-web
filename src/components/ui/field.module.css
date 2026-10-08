@@ -16,14 +16,14 @@
   min-inline-size: 0;
   min-block-size: var(--interaction-target-min);
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-foreground-muted);
   border-radius: var(--radius-md);
   color: var(--color-foreground);
   background: var(--color-surface);
 }
 
 .control:hover:not(:disabled):not([aria-invalid="true"]) {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-foreground-secondary);
 }
 
 .control[aria-invalid="true"] {

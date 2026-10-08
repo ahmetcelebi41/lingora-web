@@ -300,6 +300,7 @@ export function Translator() {
         <Textarea
           id="source-text"
           name="sourceText"
+          lang={sourceLanguage}
           label={sourceLanguage === "en" ? "İngilizce metin" : "Türkçe metin"}
           placeholder="Çevirmek istediğiniz metni yazın"
           value={sourceText}
@@ -385,6 +386,7 @@ export function Translator() {
         <Textarea
           id="result-text"
           name="resultText"
+          lang={targetLanguage}
           label={targetLanguage === "en" ? "İngilizce çeviri" : "Türkçe çeviri"}
           placeholder={hasResult ? undefined : "Çeviri burada görünecek"}
           value={resultText}
@@ -417,9 +419,12 @@ export function Translator() {
         </Button>
       </div>
 
+      <div className={styles.announcement} role="status" aria-atomic="true">
+        {isLoading ? loadingMessage : copyFeedback === "copied" ? "Kopyalandı" : ""}
+      </div>
       {isLoading && (
         <div className={styles.feedback}>
-          <StatusMessage variant="info" role="status">
+          <StatusMessage variant="info">
             {loadingMessage}
           </StatusMessage>
         </div>
