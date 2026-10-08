@@ -177,7 +177,7 @@ manuel başlatılır; push otomatik deploy yapmaz. Workflow Node.js 24 ile
 resmi GitHub Pages actions ile yayımlar. Özel secret/API key/npm token gerekmez.
 
 Repository `ahmetcelebi41/lingora-web`, project site adresi
-`https://ahmetcelebi41.github.io/lingora-web/` olacaktır. Workflow, gerçek
+`https://ahmetcelebi41.github.io/lingora-web/` adresinde yayındadır. Workflow, gerçek
 Pages metadata'sındaki `base_path` değerini
 `GITHUB_PAGES_BASE_PATH` ile build'e aktarır; repo adı hard-code edilmez.
 `basePath` JS/CSS, lazy runtime ve favicon yollarını kapsar; ayrıca `assetPrefix`
@@ -186,4 +186,10 @@ kullanılmaz. `npm run dev` bu değişken set edilse bile kökte çalışır. Ye
 değişkene gerçek Pages base path verilerek yeniden build alınmalıdır.
 
 26.861.777 byte ONNX WASM dosyası export artifact'inde korunur; runtime/model
-kaynakları değiştirilmez. Gerçek deploy kontrolü henüz yapılmamıştır.
+kaynakları değiştirilmez. GitHub Pages production deployment ve canlı asset kontrolleri doğrulanmıştır.
+
+## V1.0 kapsamı
+
+PWA manifest ve yerel 192/512 ikonları mevcuttur; ana ekrana kurulum ve
+standalone açılış tarayıcı desteğine bağlıdır. Native Android/APK sürümü yoktur.
+OCR/görsel çeviri V1.1 kapsamındadır. Offline çeviri desteği vaat edilmez.
