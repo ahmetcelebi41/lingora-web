@@ -26,7 +26,7 @@ function fixture(overrides = {}, options = {}) {
       },
     },
   };
-  const service = {
+  const service = options.translationService ?? {
     translate(request, options) {
       return new Promise((resolve, reject) => pending.push({ request, options, resolve, reject }));
     },
@@ -75,7 +75,7 @@ function fixture(overrides = {}, options = {}) {
           return options.server ? serverSnapshot() : snapshot();
         },
       };
-      if (specifier === "@/features/translation/service") return { translationService: service };
+      if (specifier === "@/features/translation/service") return { translationService: service, connectTranslationService: options.connectTranslationService ?? (() => () => {}) };
       const base = specifier.startsWith("@/")
         ? path.join(root, specifier.slice(2))
         : path.resolve(path.dirname(file), specifier);

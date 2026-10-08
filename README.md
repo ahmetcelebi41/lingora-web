@@ -140,18 +140,33 @@ devre dışıdır; Durdur yalnız okuma sırasında aktiftir. Metin/dil değişi
 temizleme, swap, yeni çeviri ve unmount aktif okumayı iptal eder. Sesli okuma
 hataları translation/copy durumundan ayrı bir kullanıcı dostu mesajla gösterilir.
 
-## Browser-side translation — 07.7
+## Browser-side translation
 
-Çeviri `@huggingface/transformers@4.3.1` ile browser içinde çalışır. EN→TR
-`Xenova/m2m100_418M` (`src_lang: "en"`, `tgt_lang: "tr"`), TR→EN
-`Xenova/opus-mt-tr-en` kullanır. API key, backend veya translation API yoktur;
-kullanıcı metni harici bir translation API'ye gönderilmez. Model ve runtime
-asset'leri ağ üzerinden alınır. İlk kullanımda model hazırlığı uzun sürebilir;
-cache ve hazır pipeline ile tekrar kullanım hızlıdır. Her yön kendi pipeline'ını
-yeniden kullanır; model build/SSR sırasında initialize edilmez.
+EN→TR primary provider tarayıcının built-in Translator API'sidir. Global yoksa
+veya EN→TR availability sonucu `unavailable` ise compatibility fallback olarak
+`@huggingface/transformers@4.3.1` ile browser-local `Xenova/m2m100_418M`
+kullanılır. `available`, `downloadable` ve
+`downloading` built-in yolundadır. Fallback modelinin kalitesi built-in modelle
+aynı kabul edilmez; desteklenmeyen tarayıcılarda temel çeviri modu kullanılır.
+TR→EN browser-local `Xenova/opus-mt-tr-en` kullanır. Tarayıcı desteği değişebilir.
+
+API key, backend veya harici translation API yoktur; metin browser içinde işlenir
+ve console'a loglanmaz. İlk kullanımda browser-managed model hazırlığı/indirmesi
+gerekebilir; fallback/TR→EN model ve runtime asset'leri de ağ üzerinden alınır.
+Build/SSR sırasında model initialize edilmez. Built-in create ilk Çevir tıklamasının
+doğrudan çağrı zincirindedir; hazır instance tekrar kullanılır ve son UI unmount'ta
+temizlenir. Ham çeviri çıktısı düzeltilmez veya yeniden yazılmaz.
 
 Hazırlıkta `Model hazırlanıyor… İlk kullanım biraz sürebilir.`, inference
 sırasında `Çevriliyor…` erişilebilir durum alanında gösterilir. Sahte yüzde,
-progress bar veya kalan süre yoktur. Yükleme başarısızsa ilgili Promise cache
-kaydı temizlenir, kullanıcı dostu hata gösterilir ve kullanıcı yeniden Çevir
-ile deneyebilir; otomatik retry yoktur.
+progress bar veya kalan süre yoktur. Built-in availability/izin/create/download/
+inference hataları sessiz fallback yapmaz; kullanıcı dostu hata gösterilir ve
+kullanıcı yeniden Çevir ile deneyebilir. Otomatik retry yoktur.
+
+## Static hosting
+
+`next.config.ts` içindeki `output: "export"`, `npm run build` ile `out/`
+klasörüne statik HTML/CSS/JS üretir. Cloudflare Pages build komutu
+`npm run build`, output directory `out` olmalıdır. Production HTTPS kullanır;
+Next.js server veya translation backend gerekmez. `next start` statik export
+için kullanılmaz; `out/` statik host tarafından servis edilir.

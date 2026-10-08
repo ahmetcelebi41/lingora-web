@@ -20,7 +20,7 @@ import {
   runTranslation,
   type TranslationRequestTracker,
 } from "@/features/translation/flow";
-import { translationService } from "@/features/translation/service";
+import { connectTranslationService, translationService } from "@/features/translation/service";
 import { discoverEnglishVoices, selectEnglishVoice } from "./speechVoice";
 import styles from "./translator.module.css";
 
@@ -110,6 +110,7 @@ export function Translator() {
   }, [refreshVoices]);
 
   useEffect(() => {
+    const disconnect = connectTranslationService();
     const tracker = request.current;
     const copyTracker = copy.current;
     const speechTracker = speech.current;
@@ -118,6 +119,7 @@ export function Translator() {
       copyTracker.id += 1;
       if (copyTracker.timer !== null) clearTimeout(copyTracker.timer);
       cancelActiveSpeech(speechTracker);
+      disconnect();
     };
   }, []);
 
